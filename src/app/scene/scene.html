@@ -1,0 +1,33 @@
+<div id="world">
+  <div id="ghosts">
+    @for (g of store.ghostItems(); track $index) {
+      <div class="win ghost" [style.transform]="g.transform" [style.opacity]="g.opacity">
+        <div class="winbar"><span>{{ g.label }}</span></div>
+        <div class="panes">
+          @for (r of g.rects; track r.id) {
+            <div
+              class="pane"
+              [style.left.%]="r.x"
+              [style.top.%]="r.y"
+              [style.width.%]="r.w"
+              [style.height.%]="r.h"
+              [style.background]="ghostBg(r.app)"
+              [style.border-color]="'#1c2230'"
+            ></div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+  <app-tmux-window
+    id="curwin"
+    [class.fly]="store.flying()"
+    [win]="store.curWindow()"
+    [session]="store.curSession()"
+    [live]="true"
+    [detached]="store.state().detached"
+    [levelName]="store.level().def.name"
+    [armed]="store.armed()"
+    [status]="store.statusText()"
+  />
+</div>
