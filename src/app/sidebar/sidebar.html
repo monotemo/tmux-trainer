@@ -1,0 +1,49 @@
+<div>
+  <h2>Level</h2>
+  <div id="lvlname">{{ store.level().def.name }}</div>
+  <p id="lvlintro">{{ store.level().def.intro }}</p>
+</div>
+<div>
+  <h2>Target</h2>
+  <div id="targetbox">
+    <app-tmux-window
+      [win]="targetWin()"
+      [session]="targetSession()"
+      [detached]="store.level().target.detached"
+    />
+  </div>
+</div>
+<div id="stats">
+  <span>moves <b>{{ store.moves() }}</b></span>
+  <span>par <b>{{ store.level().par }}</b></span>
+  <span>stars <b>{{ store.totalStars() }}</b></span>
+</div>
+<div>
+  <h2>Keys learned</h2>
+  <div id="cheat">
+    @for (k of allKeys; track k[0]) {
+      <div class="ck" [class.locked]="!store.learnedKeys()[k[0]]">
+        <kbd>{{ k[0] }}</kbd><span class="d">{{ store.learnedKeys()[k[0]] ? k[1] : '???' }}</span>
+      </div>
+    }
+  </div>
+</div>
+<div>
+  <h2>Levels</h2>
+  <div id="lvldots">
+    @for (d of store.levelDots(); track d.i) {
+      <div
+        class="ldot"
+        [class.cur]="d.cur"
+        [class.done]="d.done"
+        [class.lockd]="d.locked"
+        (click)="clickDot(d.i)"
+      >{{ d.label }}</div>
+    }
+  </div>
+</div>
+<div id="btns">
+  <button (click)="store.restart()">restart (r)</button>
+  <button (click)="store.hint()">hint</button>
+  <button (click)="store.overlay.set('help')">help (?)</button>
+</div>

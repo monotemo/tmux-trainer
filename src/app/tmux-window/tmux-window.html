@@ -1,0 +1,64 @@
+@if (detached()) {
+  @if (live()) {
+    <div class="winbar">
+      <span class="dot" style="background:#f7768e"></span>
+      <span class="dot" style="background:#e0af68"></span>
+      <span class="dot" style="background:#9ece6a"></span>
+      <span>shell</span>
+    </div>
+    <div class="shell">{{ shellPre() }}<b>{{ shellBold() }}</b>{{ shellPost }}</div>
+    <div class="statusbar" style="background:#1a2030;color:#5b6377">
+      <span>no client attached — session still alive</span>
+      <span class="smsg" [class.err]="status()?.err">{{ status()?.text }}</span>
+    </div>
+  } @else {
+    <div class="shell">{{ targetShell() }}</div>
+    <div class="statusbar"><span>{{ statusLeft() }}</span></div>
+  }
+} @else {
+  @if (live()) {
+    <div class="winbar">
+      <span class="dot" style="background:#f7768e"></span>
+      <span class="dot" style="background:#e0af68"></span>
+      <span class="dot" style="background:#9ece6a"></span>
+      <span>{{ levelName() }}</span>
+    </div>
+  }
+  <div class="panes">
+    @for (r of rects(); track r.id) {
+      <div
+        class="pane"
+        [class.active]="live() && r.id === win().activeId"
+        [style.left.%]="r.x"
+        [style.top.%]="r.y"
+        [style.width.%]="r.w"
+        [style.height.%]="r.h"
+      >
+        <div class="ptitle" [style.background]="appColor(r.app)">
+          {{ r.app }}
+          @if (win().zoomed === r.id) {
+            <span class="zbadge">Z</span>
+          }
+        </div>
+        @if (r.app === 'htop') {
+          <div class="pbody">
+            @for (p of htopBars; track $index) {
+              <div class="hbar" [style.width.%]="p" [style.background]="p > 60 ? '#f7768e' : '#9ece6a'"></div>
+            }
+          </div>
+        } @else {
+          <div class="pbody">{{ paneBody(r.app) }}</div>
+        }
+      </div>
+    }
+  </div>
+  @if (live()) {
+    <div class="statusbar">
+      <span>{{ statusLeft() }}</span>
+      <span class="smsg" [class.err]="status()?.err">{{ status()?.text }}</span>
+      <span>{{ armed() ? '^B' : '' }}</span>
+    </div>
+  } @else {
+    <div class="statusbar"><span>{{ statusLeft() }}</span></div>
+  }
+}
