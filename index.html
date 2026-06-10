@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pane Wrangler — learn tmux key bindings</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#11151f; --border:#222a3a; --txt:#c8d3f5; --dim:#5b6377;
+    --green:#9ece6a; --blue:#7aa2f7; --red:#f7768e; --yellow:#e0af68; --purple:#bb9af7; --cyan:#7dcfff;
+    --status:#9ece6a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg); color:var(--txt);
+    font-family:"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    overflow:hidden; user-select:none;
+  }
+  #app{display:flex; flex-direction:column; height:100%;}
+
+  /* top bar */
+  #topbar{
+    display:flex; align-items:baseline; gap:16px; padding:10px 18px;
+    border-bottom:1px solid var(--border); background:var(--panel);
+  }
+  #topbar h1{font-size:15px; letter-spacing:2px; color:var(--green);}
+  #topbar .sub{font-size:11px; color:var(--dim);}
+  #topbar .spacer{flex:1;}
+  #prefixled{
+    font-size:11px; padding:3px 10px; border-radius:3px; border:1px solid var(--border);
+    color:var(--dim); transition:all .12s;
+  }
+  #prefixled.armed{background:var(--yellow); color:#0b0e14; border-color:var(--yellow); font-weight:bold;}
+
+  #main{flex:1; display:flex; min-height:0;}
+
+  /* 3D scene */
+  #scene{
+    flex:1; display:flex; align-items:center; justify-content:center;
+    perspective:1500px; perspective-origin:60% 40%; position:relative; overflow:hidden;
+  }
+  #world{position:relative; transform-style:preserve-3d; transform:rotateX(8deg) rotateY(-10deg);}
+  .win{
+    width:640px; height:444px; background:#0d1117; border:1px solid #2a3247;
+    border-radius:6px; box-shadow:0 18px 60px rgba(0,0,0,.6);
+    display:flex; flex-direction:column; overflow:hidden;
+    transform-style:preserve-3d;
+  }
+  #curwin{position:relative; z-index:5; transition:transform .5s ease, opacity .5s ease;}
+  #curwin.fly{transform:translate3d(60px,-50px,-160px); opacity:.25;}
+  .ghost{
+    position:absolute; top:0; left:0; z-index:1; pointer-events:none;
+    border-color:#1c2230;
+  }
+  .ghost .winbar{color:#6b7694;}
+  .winbar{
+    height:22px; background:#161b26; border-bottom:1px solid #222a3a;
+    display:flex; align-items:center; gap:6px; padding:0 10px; font-size:10px; color:var(--dim);
+    flex:none;
+  }
+  .dot{width:8px; height:8px; border-radius:50%;}
+  .panes{flex:1; position:relative; background:#05070b;}
+  .pane{
+    position:absolute; border:1px solid #2a3247; background:#0a0e16;
+    display:flex; flex-direction:column; overflow:hidden; transition:all .18s ease;
+  }
+  .pane.active{border-color:var(--green); box-shadow:inset 0 0 0 1px var(--green);}
+  .pane .ptitle{
+    flex:none; font-size:9px; padding:2px 6px; color:#0b0e14; font-weight:bold;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .pane .pbody{flex:1; padding:4px 6px; font-size:9px; line-height:1.5; color:#717c9c; white-space:pre; overflow:hidden;}
+  .pane .zbadge{font-size:8px; background:#0b0e14; color:var(--yellow); padding:0 4px; border-radius:2px;}
+  .statusbar{
+    flex:none; height:20px; background:var(--status); color:#0d1117; font-size:10px;
+    display:flex; align-items:center; padding:0 8px; gap:10px; font-weight:bold; white-space:nowrap; overflow:hidden;
+  }
+  .statusbar .smsg{flex:1; text-align:center; font-weight:normal; overflow:hidden; text-overflow:ellipsis;}
+  .statusbar .smsg.err{color:#7f1d2b;}
+  .shell{flex:1; background:#05070b; padding:14px; font-size:11px; line-height:1.8; color:#717c9c; white-space:pre-wrap;}
+  .shell b{color:var(--green); font-weight:normal;}
+  .hbar{height:5px; border-radius:2px; margin:2px 0;}
+
+  /* sidebar */
+  #side{
+    width:320px; flex:none; border-left:1px solid var(--border); background:var(--panel);
+    padding:14px 16px; display:flex; flex-direction:column; gap:12px; overflow-y:auto;
+  }
+  #side h2{font-size:10px; letter-spacing:2px; color:var(--dim); text-transform:uppercase;}
+  #lvlname{font-size:14px; color:var(--blue);}
+  #lvlintro{font-size:11px; line-height:1.6; color:var(--txt);}
+  #targetbox .win{width:100%; height:170px; box-shadow:none;}
+  #targetbox .statusbar{height:18px; font-size:9px;}
+  #stats{display:flex; gap:18px; font-size:11px;}
+  #stats b{color:var(--yellow);}
+  #cheat{display:flex; flex-direction:column; gap:3px;}
+  .ck{display:flex; gap:10px; font-size:10px; align-items:baseline;}
+  .ck kbd{
+    background:#1a2030; border:1px solid #2a3247; border-bottom-width:2px; border-radius:3px;
+    padding:1px 6px; font-size:9px; color:var(--green); min-width:40px; text-align:center;
+  }
+  .ck .d{color:var(--dim);}
+  .ck.locked{opacity:.3;}
+  #lvldots{display:flex; gap:5px; flex-wrap:wrap;}
+  .ldot{
+    width:24px; height:24px; border:1px solid var(--border); border-radius:4px;
+    display:flex; align-items:center; justify-content:center; font-size:10px;
+    color:var(--dim); cursor:pointer;
+  }
+  .ldot.done{color:var(--green); border-color:var(--green);}
+  .ldot.cur{background:var(--blue); color:#0b0e14; border-color:var(--blue);}
+  .ldot.lockd{cursor:default; opacity:.4;}
+  #btns{display:flex; gap:8px;}
+  button{
+    background:#1a2030; border:1px solid #2a3247; color:var(--txt); font-family:inherit;
+    font-size:11px; padding:6px 12px; border-radius:4px; cursor:pointer;
+  }
+  button:hover{border-color:var(--blue);}
+
+  /* session chooser */
+  #chooser{
+    position:fixed; inset:0; background:rgba(5,7,11,.7); z-index:40;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #chooser .clist{
+    background:#0d1117; border:1px solid var(--green); border-radius:4px;
+    min-width:340px; font-size:11px; padding:8px 0;
+  }
+  #chooser .ctitle{padding:4px 14px 8px; color:var(--dim); font-size:10px;}
+  #chooser .crow{padding:5px 14px; color:var(--txt);}
+  #chooser .crow.sel{background:var(--green); color:#0b0e14;}
+
+  /* overlays */
+  .overlay{
+    position:fixed; inset:0; background:rgba(5,7,11,.82); z-index:50;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:30px 36px; max-width:540px; text-align:center; display:flex; flex-direction:column; gap:14px;
+  }
+  .card h2{font-size:18px; color:var(--green); letter-spacing:1px;}
+  .card p{font-size:12px; line-height:1.7; color:var(--txt);}
+  .card kbd{
+    background:#1a2030; border:1px solid #2a3247; border-bottom-width:2px; border-radius:3px;
+    padding:1px 7px; font-size:11px; color:var(--green);
+  }
+  .stars{font-size:30px; letter-spacing:6px; color:var(--yellow);}
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <h1>PANE WRANGLER</h1>
+    <span class="sub">stack windows · learn tmux</span>
+    <span class="spacer"></span>
+    <span id="prefixled">prefix: ctrl+b</span>
+  </div>
+  <div id="main">
+    <div id="scene">
+      <div id="world">
+        <div id="ghosts"></div>
+        <div id="curwin" class="win"></div>
+      </div>
+    </div>
+    <div id="side">
+      <div>
+        <h2>Level</h2>
+        <div id="lvlname"></div>
+        <p id="lvlintro"></p>
+      </div>
+      <div>
+        <h2>Target</h2>
+        <div id="targetbox"><div class="win" id="targetwin"></div></div>
+      </div>
+      <div id="stats">
+        <span>moves <b id="moves">0</b></span>
+        <span>par <b id="par">0</b></span>
+        <span>stars <b id="totalstars">0</b></span>
+      </div>
+      <div>
+        <h2>Keys learned</h2>
+        <div id="cheat"></div>
+      </div>
+      <div>
+        <h2>Levels</h2>
+        <div id="lvldots"></div>
+      </div>
+      <div id="btns">
+        <button id="btn-restart">restart (r)</button>
+        <button id="btn-hint">hint</button>
+        <button id="btn-help">help (?)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="chooser" class="hidden">
+  <div class="clist">
+    <div class="ctitle">choose-session — ↑↓ to move, enter to attach, q to cancel</div>
+    <div id="crows"></div>
+  </div>
+</div>
+
+<div id="ov-intro" class="overlay">
+  <div class="card">
+    <h2>PANE WRANGLER</h2>
+    <p>tmux commands all start the same way: press <kbd>ctrl</kbd>+<kbd>b</kbd>, release, then press a command key. That two-step is the whole trick, and this game drills it into your hands.</p>
+    <p>Each level shows a target. Recreate it in the live terminal using real tmux bindings. 18 levels in three acts: panes, then windows, then whole sessions. The windows stacked behind the live one are part of your session — you will learn to move through them.</p>
+    <p>Beat par for three stars.</p>
+    <button id="btn-start">start — or press enter</button>
+  </div>
+</div>
+
+<div id="ov-win" class="overlay hidden">
+  <div class="card">
+    <h2 id="wintitle">solved</h2>
+    <div class="stars" id="winstars"></div>
+    <p id="winsub"></p>
+    <button id="btn-next">next level — or press enter</button>
+  </div>
+</div>
+
+<div id="ov-done" class="overlay hidden">
+  <div class="card">
+    <h2>stack complete</h2>
+    <div class="stars" id="donestars"></div>
+    <p>Eighteen levels, all wrangled. Panes: <kbd>%</kbd> <kbd>"</kbd> <kbd>x</kbd> <kbd>z</kbd> <kbd>{</kbd> <kbd>}</kbd> <kbd>o</kbd> <kbd>space</kbd> and arrows. Windows: <kbd>c</kbd> <kbd>n</kbd> <kbd>p</kbd> <kbd>0-9</kbd> <kbd>,</kbd> <kbd>&amp;</kbd>. Sessions: <kbd>d</kbd> <kbd>s</kbd>. Open a real terminal and type <kbd>tmux</kbd> — it will feel like home.</p>
+    <button id="btn-again">play again</button>
+  </div>
+</div>
+
+<div id="ov-help" class="overlay hidden">
+  <div class="card" style="text-align:left">
+    <h2 style="text-align:center">cheat sheet</h2>
+    <p>
+    <b style="color:var(--dim)">panes</b><br>
+    <kbd>ctrl+b %</kbd> split left/right · <kbd>ctrl+b "</kbd> split top/bottom<br>
+    <kbd>ctrl+b ←↑↓→</kbd> move between panes · <kbd>ctrl+b o</kbd> next pane<br>
+    <kbd>ctrl+b x</kbd> kill pane · <kbd>ctrl+b z</kbd> zoom<br>
+    <kbd>ctrl+b {</kbd> / <kbd>}</kbd> swap pane · <kbd>ctrl+b space</kbd> cycle layouts<br>
+    <b style="color:var(--dim)">windows</b><br>
+    <kbd>ctrl+b c</kbd> new window · <kbd>ctrl+b n</kbd> / <kbd>p</kbd> next / previous<br>
+    <kbd>ctrl+b 0-9</kbd> select by number · <kbd>ctrl+b ,</kbd> rename<br>
+    <kbd>ctrl+b &amp;</kbd> kill window<br>
+    <b style="color:var(--dim)">sessions</b><br>
+    <kbd>ctrl+b d</kbd> detach · <kbd>ctrl+b s</kbd> choose session<br>
+    <b style="color:var(--dim)">game</b><br>
+    <kbd>esc</kbd> cancel prefix · <kbd>r</kbd> restart level
+    </p>
+    <button id="btn-closehelp">close</button>
+  </div>
+</div>
+
+<script>
+// ===MODEL===
+const APPCOLOR = {vim:'#7aa2f7', node:'#9ece6a', htop:'#e0af68', logs:'#bb9af7', bash:'#f7768e', ssh:'#7dcfff'};
+let _id = 1;
+function L(app){ return {type:'leaf', id:_id++, app}; }
+function newWin(app){ const lf=L(app); return {named:false, name:'', root:lf, activeId:lf.id, zoomed:null, layoutIdx:-1}; }
+function newState(sesName, app, spawn){
+  return {sessions:[{name:sesName, windows:[newWin(app)], activeWin:0}], activeSes:0, detached:false, spawn:spawn.slice()};
+}
+function ses(s){ return s.sessions[s.activeSes]; }
+function win(s){ const S=ses(s); return S.windows[S.activeWin]; }
+function clone(s){ return JSON.parse(JSON.stringify(s)); }
+function leavesOf(n, out){ out=out||[]; if(!n) return out; if(n.type==='leaf') out.push(n); else n.children.forEach(function(c){ leavesOf(c,out); }); return out; }
+function findLeaf(w,id){ return leavesOf(w.root).find(function(l){ return l.id===id; }); }
+function dispName(w){ if(w.named) return w.name; const lf=findLeaf(w,w.activeId); return lf?lf.app:'?'; }
+function rectsOf(w){
+  const out=[];
+  (function go(n,x,y,wd,h){
+    if(n.type==='leaf'){ out.push({id:n.id, app:n.app, x:x, y:y, w:wd, h:h}); return; }
+    const k=n.children.length;
+    if(n.dir==='h'){ const cw=wd/k; n.children.forEach(function(c,i){ go(c, x+i*cw, y, cw, h); }); }
+    else { const ch=h/k; n.children.forEach(function(c,i){ go(c, x, y+i*ch, wd, ch); }); }
+  })(w.root, 0, 0, 100, 100);
+  return out;
+}
+function winSig(w){
+  const r = rectsOf(w).slice().sort(function(a,b){ return a.y-b.y || a.x-b.x; })
+    .map(function(p){ return p.app+'@'+p.x.toFixed(1)+','+p.y.toFixed(1)+','+p.w.toFixed(1)+','+p.h.toFixed(1); }).join(';');
+  let z='';
+  if(w.zoomed){ const lf=findLeaf(w,w.zoomed); if(lf) z='Z:'+lf.app+'|'; }
+  return z+r;
+}
+function sig(s){
+  const S=ses(s);
+  const parts=S.windows.map(function(w){ return (w.named?w.name:'~')+'{'+winSig(w)+'}'; });
+  return (s.detached?'D|':'A|')+S.name+'#'+S.activeWin+'|'+parts.join('||');
+}
+// --- pane ops ---
+function doSplit(s,dir){
+  const w=win(s);
+  const lf=findLeaf(w,w.activeId); if(!lf) return {ok:false,msg:'no active pane'};
+  const app = s.spawn.length ? s.spawn.shift() : 'bash';
+  const a={type:'leaf', id:lf.id, app:lf.app}, b=L(app);
+  lf.type='split'; lf.dir=dir; lf.children=[a,b]; delete lf.id; delete lf.app;
+  w.activeId=b.id; w.zoomed=null; w.layoutIdx=-1;
+  return {ok:true};
+}
+function removeLeaf(n,id){
+  if(n.type==='leaf') return n.id===id ? null : n;
+  const ch=n.children.map(function(c){ return removeLeaf(c,id); }).filter(Boolean);
+  if(!ch.length) return null;
+  if(ch.length===1) return ch[0];
+  return {type:'split', dir:n.dir, children:ch};
+}
+function doKill(s){
+  const w=win(s);
+  const ls=leavesOf(w.root);
+  if(ls.length<=1) return {ok:false,msg:"can't kill the last pane"};
+  const i=ls.findIndex(function(l){ return l.id===w.activeId; });
+  w.root=removeLeaf(w.root, w.activeId);
+  const ls2=leavesOf(w.root);
+  w.activeId=ls2[Math.min(Math.max(0,i-1), ls2.length-1)].id;
+  w.zoomed=null; w.layoutIdx=-1;
+  return {ok:true};
+}
+function doSwap(s,d){
+  const w=win(s);
+  const ls=leavesOf(w.root);
+  if(ls.length<2) return {ok:false,msg:'nothing to swap with'};
+  const i=ls.findIndex(function(l){ return l.id===w.activeId; });
+  const j=(i+d+ls.length)%ls.length;
+  const a=ls[i], b=ls[j];
+  const t={id:a.id, app:a.app};
+  a.id=b.id; a.app=b.app; b.id=t.id; b.app=t.app;
+  w.zoomed=null;
+  return {ok:true};
+}
+function overlapV(r,a){ return r.y < a.y+a.h-0.01 && r.y+r.h > a.y+0.01; }
+function overlapH(r,a){ return r.x < a.x+a.w-0.01 && r.x+r.w > a.x+0.01; }
+function doNav(s,dx,dy){
+  const w=win(s);
+  w.zoomed=null;
+  const rs=rectsOf(w);
+  const a=rs.find(function(r){ return r.id===w.activeId; });
+  const cand=rs.filter(function(r){
+    if(r.id===a.id) return false;
+    if(dx<0) return r.x+r.w<=a.x+0.01 && overlapV(r,a);
+    if(dx>0) return r.x>=a.x+a.w-0.01 && overlapV(r,a);
+    if(dy<0) return r.y+r.h<=a.y+0.01 && overlapH(r,a);
+    return r.y>=a.y+a.h-0.01 && overlapH(r,a);
+  });
+  if(!cand.length) return {ok:false,msg:'no pane in that direction'};
+  function dist(r){
+    if(dx<0) return a.x-(r.x+r.w);
+    if(dx>0) return r.x-(a.x+a.w);
+    if(dy<0) return a.y-(r.y+r.h);
+    return r.y-(a.y+a.h);
+  }
+  cand.sort(function(p,q){ return dist(p)-dist(q); });
+  w.activeId=cand[0].id;
+  return {ok:true};
+}
+function doNext(s){
+  const w=win(s);
+  w.zoomed=null;
+  const ls=leavesOf(w.root);
+  if(ls.length<2) return {ok:false,msg:'only one pane'};
+  const i=ls.findIndex(function(l){ return l.id===w.activeId; });
+  w.activeId=ls[(i+1)%ls.length].id;
+  return {ok:true};
+}
+function doZoom(s){
+  const w=win(s);
+  w.zoomed = (w.zoomed===w.activeId) ? null : w.activeId;
+  return {ok:true};
+}
+const LAYOUTS=['even-horizontal','even-vertical','main-horizontal','main-vertical','tiled'];
+function buildLayout(name, ls){
+  const n=ls.length;
+  if(n===1) return ls[0];
+  const rest=ls.slice(1);
+  if(name==='even-horizontal') return {type:'split',dir:'h',children:ls};
+  if(name==='even-vertical')   return {type:'split',dir:'v',children:ls};
+  if(name==='main-horizontal') return {type:'split',dir:'v',children:[ls[0], rest.length===1?rest[0]:{type:'split',dir:'h',children:rest}]};
+  if(name==='main-vertical')   return {type:'split',dir:'h',children:[ls[0], rest.length===1?rest[0]:{type:'split',dir:'v',children:rest}]};
+  const cols=Math.ceil(Math.sqrt(n)); const rows=[];
+  for(let i=0;i<n;i+=cols) rows.push(ls.slice(i,i+cols));
+  if(rows.length===1) return {type:'split',dir:'h',children:rows[0]};
+  return {type:'split',dir:'v',children:rows.map(function(r){ return r.length===1?r[0]:{type:'split',dir:'h',children:r}; })};
+}
+function doLayout(s){
+  const w=win(s);
+  w.layoutIdx=(w.layoutIdx+1)%LAYOUTS.length;
+  const ls=leavesOf(w.root).map(function(l){ return {type:'leaf', id:l.id, app:l.app}; });
+  w.root=buildLayout(LAYOUTS[w.layoutIdx], ls);
+  w.zoomed=null;
+  return {ok:true, msg:LAYOUTS[w.layoutIdx]};
+}
+// --- window ops ---
+function doNewWin(s){
+  const S=ses(s);
+  const app = s.spawn.length ? s.spawn.shift() : 'bash';
+  S.windows.push(newWin(app));
+  S.activeWin=S.windows.length-1;
+  return {ok:true};
+}
+function doWinNav(s,d){
+  const S=ses(s);
+  if(S.windows.length<2) return {ok:false,msg:'only one window'};
+  S.activeWin=(S.activeWin+d+S.windows.length)%S.windows.length;
+  return {ok:true};
+}
+function doWinSel(s,i){
+  const S=ses(s);
+  if(i>=S.windows.length) return {ok:false,msg:'no window '+i};
+  S.activeWin=i;
+  return {ok:true};
+}
+function doRename(s,name){
+  if(!name) return {ok:false,msg:'empty name'};
+  const w=win(s);
+  w.named=true; w.name=name;
+  return {ok:true};
+}
+function doKillWin(s){
+  const S=ses(s);
+  if(S.windows.length<=1) return {ok:false,msg:"can't kill the last window"};
+  S.windows.splice(S.activeWin,1);
+  S.activeWin=Math.max(0, S.activeWin-1);
+  return {ok:true};
+}
+// --- session ops ---
+function doDetach(s){ s.detached=true; return {ok:true,msg:'[detached (from session '+ses(s).name+')]'}; }
+function doSesSel(s,name){
+  const i=s.sessions.findIndex(function(x){ return x.name===name; });
+  if(i<0) return {ok:false,msg:'no session '+name};
+  s.activeSes=i;
+  return {ok:true,msg:'attached to '+name};
+}
+function applyKey(s,key){
+  if(s.detached){
+    if(key==='ATTACH'){ s.detached=false; return {ok:true,msg:'attached'}; }
+    return {ok:false,msg:'detached — press enter to attach'};
+  }
+  if(key.charAt(0)===',') return doRename(s, key.slice(1).trim());
+  if(key.slice(0,2)==='s:') return doSesSel(s, key.slice(2));
+  if(/^[0-9]$/.test(key)) return doWinSel(s, +key);
+  switch(key){
+    case '%': return doSplit(s,'h');
+    case '"': return doSplit(s,'v');
+    case '{': return doSwap(s,-1);
+    case '}': return doSwap(s,1);
+    case 'o': return doNext(s);
+    case 'x': return doKill(s);
+    case 'z': return doZoom(s);
+    case ' ': return doLayout(s);
+    case 'ArrowLeft': return doNav(s,-1,0);
+    case 'ArrowRight': return doNav(s,1,0);
+    case 'ArrowUp': return doNav(s,0,-1);
+    case 'ArrowDown': return doNav(s,0,1);
+    case 'c': return doNewWin(s);
+    case 'n': return doWinNav(s,1);
+    case 'p': return doWinNav(s,-1);
+    case '&': return doKillWin(s);
+    case 'd': return doDetach(s);
+    default: return {ok:false,msg:key+' is not bound (yet)'};
+  }
+}
+const LEVELS=[
+  // act one: panes
+  {name:'1 · First blood', spawn:['node'], setup:[], solution:['%'],
+   intro:'Press ctrl+b, release, then %. That splits the pane left and right. The new pane is the active one (green border).',
+   teach:[['%','split left/right']]},
+  {name:'2 · The other one', spawn:['htop'], setup:[], solution:['"'],
+   intro:'ctrl+b then " splits top and bottom. Yes, the key is a double quote. Blame 1987.',
+   teach:[['"','split top/bottom']]},
+  {name:'3 · Splits nest', spawn:['node','htop'], setup:[], solution:['%','"'],
+   intro:'Splits apply to the active pane, and the new pane becomes active. Chain two splits to match the target.',
+   teach:[]},
+  {name:'4 · Get around', spawn:['logs','htop'], setup:[], solution:['%','ArrowLeft','"'],
+   intro:'ctrl+b plus an arrow key moves you between panes. ctrl+b o cycles to the next pane in order. Split, move back left, split again.',
+   teach:[['←↑↓→','move between panes'],['o','next pane']]},
+  {name:'5 · Kill the noise', spawn:['bash'], setup:['%'], solution:['x'],
+   intro:'A stray shell snuck in. ctrl+b x kills the active pane — tmux asks first, so press y to confirm.',
+   teach:[['x','kill pane (y/n)']]},
+  {name:'6 · Musical panes', spawn:['htop'], setup:['%'], solution:['{'],
+   intro:'Right apps, wrong seats. ctrl+b { drags the active pane backward through the order; } drags it forward.',
+   teach:[['{','swap backward'],['}','swap forward']]},
+  {name:'7 · Zoom in', spawn:['node','htop'], setup:['%','"'], solution:['ArrowLeft','z'],
+   intro:'ctrl+b z zooms the active pane to fill the window. Press it again to unzoom. Get to vim, then zoom it.',
+   teach:[['z','zoom pane']]},
+  {name:'8 · Shapeshifter', spawn:['node','htop'], setup:['%','%'], solution:[' '],
+   intro:'ctrl+b space cycles preset layouts: even-horizontal, even-vertical, main-horizontal, main-vertical, tiled. One press fixes this lopsided mess.',
+   teach:[['space','cycle layouts']]},
+  {name:'9 · Cleanup crew', spawn:['bash','logs','htop'], setup:['%','%'], solution:['ArrowLeft','x','ArrowRight','"'],
+   intro:'Combine your moves: hunt down the bash pane, kill it, then build the target from what remains.',
+   teach:[]},
+  {name:'10 · Perfect quarters', spawn:['node','htop','logs'], setup:[], solution:['%','"','ArrowLeft','"'],
+   intro:'Four panes, four quarters. Mind the split order — the spawn queue is vim, node, htop, logs.',
+   teach:[]},
+  // act two: windows
+  {name:'11 · Open a window', spawn:['node'], setup:[], solution:['c'],
+   intro:'ctrl+b c opens a new window: a fresh full-screen workspace. Look behind the live window — the stack is your session now.',
+   teach:[['c','new window']]},
+  {name:'12 · Next, previous', spawn:['logs','htop'], setup:['c','c','0'], solution:['p'],
+   intro:'ctrl+b n goes to the next window, p to the previous. Both wrap around the ends — the fastest route to htop is backward.',
+   teach:[['n / p','next / prev window']]},
+  {name:'13 · By the numbers', spawn:['logs','htop','node'], setup:['c','c','c'], solution:['1'],
+   intro:'Each window has a number, right there in the status bar. ctrl+b plus the digit jumps straight to it. No surfing.',
+   teach:[['0-9','select window']]},
+  {name:'14 · Say my name', spawn:[], setup:[], solution:[',build'],
+   intro:'ctrl+b , renames the active window. Backspace the old name, type "build", press enter. Named windows stop auto-renaming.',
+   teach:[[',','rename window']]},
+  {name:'15 · Too many tabs', spawn:['bash'], setup:['c'], solution:['&'],
+   intro:'ctrl+b & kills the whole window, panes and all. Like x, it asks first. Get rid of that bash window.',
+   teach:[['&','kill window (y/n)']]},
+  // act three: sessions
+  {name:'16 · Cut the cord', spawn:[], setup:[], solution:['d'],
+   intro:'ctrl+b d detaches. The session keeps running in the background; you drop back to your shell. In this game, enter re-attaches.',
+   teach:[['d','detach']]},
+  {name:'17 · Session hop', spawn:[], extra:[{name:'scratch', app:'ssh'}], setup:[], solution:['s:scratch'],
+   intro:'One tmux server can hold many sessions. ctrl+b s lists them — pick one with the arrows, attach with enter. Move to scratch.',
+   teach:[['s','choose session']]},
+  {name:'18 · Ship it and leave', spawn:['node','htop'], setup:[], solution:['c',',tests','%','d'],
+   intro:'The closer: open a new window, rename it "tests", split it, then detach and walk away. tmux keeps it all running.',
+   teach:[]}
+];
+function buildLevel(i){
+  const def=LEVELS[i];
+  _id=1;
+  const s=newState('work', 'vim', def.spawn);
+  (def.extra||[]).forEach(function(x){ s.sessions.push({name:x.name, windows:[newWin(x.app)], activeWin:0}); });
+  def.setup.forEach(function(k){ applyKey(s,k); });
+  const start=clone(s);
+  const t=clone(s);
+  def.solution.forEach(function(k){ applyKey(t,k); });
+  return {def:def, start:start, target:t, par:def.solution.length};
+}
+// ===END MODEL===
+
+// ---- game ----
+const $=function(q){ return document.querySelector(q); };
+let lvlIdx=0, level=null, state=null, moves=0, armed=false, busy=false;
+let confirming=null;          // {cmd:'x'|'&', label}
+let renaming=null;            // {buf}
+let choosing=null;            // {idx}
+let starsByLevel={}, unlocked=1;
+try{ const sv=JSON.parse(localStorage.getItem('panewrangler')||'{}'); starsByLevel=sv.stars||{}; unlocked=sv.unlocked||1; }catch(e){}
+function save(){ try{ localStorage.setItem('panewrangler', JSON.stringify({stars:starsByLevel, unlocked:unlocked})); }catch(e){} }
+
+// tiny synth
+let actx=null;
+function beep(f,d,type,vol){
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.type=type||'square'; o.frequency.value=f;
+    g.gain.value=vol||0.03; g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime+(d||0.08));
+    o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime+(d||0.08));
+  }catch(e){}
+}
+function winChime(){ [523,659,784,1047].forEach(function(f,i){ setTimeout(function(){ beep(f,.12,'triangle',.05); }, i*90); }); }
+
+const PBODY={
+  vim:'~\n~\n~\n~\n-- NORMAL --',
+  node:'> uptime()\n42d 3h\n> _',
+  htop:'',
+  logs:'INFO  server up\nINFO  GET /  200\nWARN  slow query\nINFO  GET /api 200',
+  bash:'$ make test\nok  12 passed\n$ _',
+  ssh:'casey@remote:~$ _'
+};
+function paneBody(app){
+  if(app==='htop'){
+    return [72,38,55,20].map(function(p){ return '<div class="hbar" style="width:'+p+'%;background:'+(p>60?'#f7768e':'#9ece6a')+'"></div>'; }).join('');
+  }
+  return (PBODY[app]||'$ _').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+}
+function esc(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function tabStrip(S){
+  return S.windows.map(function(w,i){ return i+':'+esc(dispName(w))+(i===S.activeWin?'*':''); }).join('  ');
+}
+function panesHTML(w, interactive){
+  let rs=rectsOf(w);
+  if(w.zoomed){
+    const lf=findLeaf(w,w.zoomed);
+    if(lf) rs=[{id:lf.id, app:lf.app, x:0, y:0, w:100, h:100}];
+  }
+  let html='<div class="panes">';
+  rs.forEach(function(r){
+    const c=APPCOLOR[r.app]||'#5b6377';
+    const act=(interactive && r.id===w.activeId)?' active':'';
+    const zb=(w.zoomed&&r.id===w.zoomed)?'<span class="zbadge">Z</span>':'';
+    html+='<div class="pane'+act+'" style="left:'+r.x+'%;top:'+r.y+'%;width:'+r.w+'%;height:'+r.h+'%">'
+        +'<div class="ptitle" style="background:'+c+'">'+r.app+zb+'</div>'
+        +'<div class="pbody">'+paneBody(r.app)+'</div></div>';
+  });
+  html+='</div>';
+  return html;
+}
+function renderCur(){
+  const el=$('#curwin');
+  if(state.detached){
+    el.innerHTML='<div class="winbar"><span class="dot" style="background:#f7768e"></span><span class="dot" style="background:#e0af68"></span><span class="dot" style="background:#9ece6a"></span><span>shell</span></div>'
+      +'<div class="shell">$ tmux detach-client\n[detached (from session '+esc(ses(state).name)+')]\n$ <b>tmux attach -t '+esc(ses(state).name)+'</b>▍\n\npress enter to run it</div>'
+      +'<div class="statusbar" style="background:#1a2030;color:#5b6377"><span>no client attached — session still alive</span><span class="smsg" id="smsg"></span></div>';
+    return;
+  }
+  const S=ses(state), w=win(state);
+  let html='<div class="winbar"><span class="dot" style="background:#f7768e"></span><span class="dot" style="background:#e0af68"></span><span class="dot" style="background:#9ece6a"></span><span>'+esc(level.def.name)+'</span></div>';
+  html+=panesHTML(w, true);
+  html+='<div class="statusbar"><span>['+esc(S.name)+'] '+tabStrip(S)+(w.zoomed?'Z':'')+'</span>'
+      +'<span class="smsg" id="smsg"></span><span>'+(armed?'^B':'')+'</span></div>';
+  el.innerHTML=html;
+  refreshPrompt();
+}
+function renderTarget(){
+  const el=$('#targetwin');
+  const t=level.target;
+  const S=t.sessions[t.activeSes], w=S.windows[S.activeWin];
+  let html='';
+  if(t.detached){
+    html+='<div class="shell">[detached]\nsession "'+esc(S.name)+'" keeps running:\n</div>';
+  } else {
+    html+=panesHTML(w, false);
+  }
+  html+='<div class="statusbar"><span>['+esc(S.name)+'] '+tabStrip(S)+(w.zoomed?'Z':'')+'</span></div>';
+  el.innerHTML=html;
+}
+let msgTimer=null;
+function setMsg(m,err,sticky){
+  const el=$('#smsg'); if(!el) return;
+  el.textContent=m||''; el.className='smsg'+(err?' err':'');
+  clearTimeout(msgTimer);
+  if(m && !sticky) msgTimer=setTimeout(function(){ refreshPrompt(true); }, 2200);
+}
+function refreshPrompt(clearing){
+  if(confirming) setMsg(confirming.label, false, true);
+  else if(renaming) setMsg('(rename-window) '+renaming.buf+'▍', false, true);
+  else if(clearing){ const el=$('#smsg'); if(el){ el.textContent=''; el.className='smsg'; } }
+}
+const pile=[];
+function renderGhosts(){
+  const box=$('#ghosts'); box.innerHTML='';
+  const items=[];
+  if(state){
+    const S=ses(state);
+    S.windows.forEach(function(w,i){
+      if(!state.detached && i===S.activeWin) return;
+      items.push({label:i+':'+dispName(w), w:w, live:true});
+    });
+  }
+  pile.slice(-4).forEach(function(g){ items.push(g); });
+  const vis=items.slice(0,7);
+  vis.forEach(function(g,i){
+    const depth=i+1;
+    const d=document.createElement('div');
+    d.className='win ghost';
+    d.style.transform='translate3d('+(depth*30)+'px,'+(-depth*22)+'px,'+(-depth*85)+'px)';
+    d.style.opacity=String(Math.max(.15, (g.live?.85:.5)-depth*.1));
+    let html='<div class="winbar"><span>'+esc(g.label)+'</span></div><div class="panes">';
+    const rs=g.live ? rectsOf(g.w) : g.rects;
+    rs.forEach(function(r){
+      html+='<div class="pane" style="left:'+r.x+'%;top:'+r.y+'%;width:'+r.w+'%;height:'+r.h+'%;background:'+(APPCOLOR[r.app]||'#333')+'22;border-color:#1c2230"></div>';
+    });
+    html+='</div>';
+    d.innerHTML=html;
+    box.appendChild(d);
+  });
+}
+const ALLKEYS=[
+  ['%','split left/right'],['"','split top/bottom'],['←↑↓→','move between panes'],['o','next pane'],
+  ['x','kill pane (y/n)'],['{','swap backward'],['}','swap forward'],['z','zoom pane'],['space','cycle layouts'],
+  ['c','new window'],['n / p','next / prev window'],['0-9','select window'],[',','rename window'],['&','kill window (y/n)'],
+  ['d','detach'],['s','choose session']
+];
+function learnedKeys(){
+  const set={};
+  for(let i=0;i<=lvlIdx && i<LEVELS.length;i++) LEVELS[i].teach.forEach(function(t){ set[t[0]]=true; });
+  return set;
+}
+function renderSide(){
+  $('#lvlname').textContent=level.def.name;
+  $('#lvlintro').textContent=level.def.intro;
+  $('#moves').textContent=moves;
+  $('#par').textContent=level.par;
+  let tot=0; Object.keys(starsByLevel).forEach(function(k){ tot+=starsByLevel[k]; });
+  $('#totalstars').textContent=tot;
+  const got=learnedKeys();
+  $('#cheat').innerHTML=ALLKEYS.map(function(k){
+    const on=got[k[0]];
+    return '<div class="ck'+(on?'':' locked')+'"><kbd>'+(k[0]==='"'?'&quot;':esc(k[0]))+'</kbd><span class="d">'+(on?k[1]:'???')+'</span></div>';
+  }).join('');
+  $('#lvldots').innerHTML=LEVELS.map(function(l,i){
+    let cls='ldot';
+    if(i===lvlIdx) cls+=' cur';
+    else if(starsByLevel[i]) cls+=' done';
+    else if(i>=unlocked) cls+=' lockd';
+    return '<div class="'+cls+'" data-i="'+i+'">'+(i+1)+'</div>';
+  }).join('');
+  document.querySelectorAll('.ldot').forEach(function(d){
+    d.onclick=function(){
+      const i=+d.dataset.i;
+      if(i<unlocked) loadLevel(i);
+    };
+  });
+}
+function renderAll(){ renderCur(); renderTarget(); renderSide(); renderGhosts(); }
+function loadLevel(i){
+  lvlIdx=i; level=buildLevel(i); state=clone(level.start);
+  moves=0; armed=false; confirming=null; renaming=null; choosing=null; busy=false;
+  $('#ov-win').classList.add('hidden');
+  renderAll();
+}
+function restart(){
+  state=clone(level.start); moves=0; armed=false; confirming=null; renaming=null; choosing=null;
+  renderAll(); setMsg('level restarted');
+}
+function checkWin(){
+  if(sig(state)!==sig(level.target)) return;
+  busy=true;
+  winChime();
+  const stars = moves<=level.par?3 : moves<=level.par+2?2 : 1;
+  starsByLevel[lvlIdx]=Math.max(starsByLevel[lvlIdx]||0, stars);
+  unlocked=Math.max(unlocked, Math.min(lvlIdx+2, LEVELS.length));
+  save();
+  const tS=level.target.sessions[level.target.activeSes];
+  pile.push({label:level.def.name, rects:rectsOf(tS.windows[tS.activeWin]), live:false});
+  $('#curwin').classList.add('fly');
+  setTimeout(function(){
+    $('#curwin').classList.remove('fly');
+    renderGhosts();
+    $('#winstars').textContent='★'.repeat(stars)+'☆'.repeat(3-stars);
+    $('#winsub').textContent=moves+' moves, par '+level.par+(stars===3?' — clean.':'');
+    if(lvlIdx+1>=LEVELS.length){
+      let tot=0; Object.keys(starsByLevel).forEach(function(k){ tot+=starsByLevel[k]; });
+      $('#donestars').textContent=tot+' / '+(LEVELS.length*3)+' ★';
+      $('#ov-done').classList.remove('hidden');
+    } else {
+      $('#ov-win').classList.remove('hidden');
+    }
+  }, 550);
+}
+function execKey(key, goodBeep){
+  const r=applyKey(state, key);
+  if(r.ok){ moves++; beep(goodBeep||660,.05); } else { beep(150,.12); }
+  renderAll();
+  if(r.msg) setMsg(r.msg, !r.ok);
+  if(r.ok) checkWin();
+}
+function renderChooser(){
+  $('#crows').innerHTML=state.sessions.map(function(S,i){
+    return '<div class="crow'+(i===choosing.idx?' sel':'')+'">('+i+') '+esc(S.name)+': '+S.windows.length+' window'+(S.windows.length>1?'s':'')
+      +(i===state.activeSes?' (attached)':'')+'</div>';
+  }).join('');
+}
+function openChooser(){
+  if(state.sessions.length<2){ setMsg('no other sessions', true); beep(150,.12); return; }
+  choosing={idx:(state.activeSes+1)%state.sessions.length};
+  $('#chooser').classList.remove('hidden');
+  renderChooser();
+}
+function closeChooser(){ choosing=null; $('#chooser').classList.add('hidden'); }
+function runCommand(key){
+  if(key==='x'){
+    if(leavesOf(win(state).root).length<=1){ setMsg("can't kill the last pane", true); beep(150,.12); return; }
+    confirming={cmd:'x', label:'kill-pane? (y/n)'};
+    refreshPrompt(); return;
+  }
+  if(key==='&'){
+    if(ses(state).windows.length<=1){ setMsg("can't kill the last window", true); beep(150,.12); return; }
+    confirming={cmd:'&', label:'kill-window '+dispName(win(state))+'? (y/n)'};
+    refreshPrompt(); return;
+  }
+  if(key===','){
+    renaming={buf:dispName(win(state))};
+    refreshPrompt(); return;
+  }
+  if(key==='s'){ openChooser(); return; }
+  execKey(key);
+}
+document.addEventListener('keydown', function(e){
+  // overlays
+  if(!$('#ov-intro').classList.contains('hidden')){
+    if(e.key==='Enter'){ $('#ov-intro').classList.add('hidden'); }
+    return;
+  }
+  if(!$('#ov-help').classList.contains('hidden')){
+    if(e.key==='Enter'||e.key==='Escape'||e.key==='?'){ $('#ov-help').classList.add('hidden'); }
+    return;
+  }
+  if(!$('#ov-win').classList.contains('hidden')){
+    if(e.key==='Enter'){ loadLevel(lvlIdx+1); }
+    return;
+  }
+  if(!$('#ov-done').classList.contains('hidden')){
+    if(e.key==='Enter'){ pile.length=0; $('#ov-done').classList.add('hidden'); loadLevel(0); }
+    return;
+  }
+  if(busy) return;
+
+  if(renaming){
+    e.preventDefault();
+    if(e.key==='Enter'){
+      const name=renaming.buf.trim();
+      renaming=null;
+      if(name){ execKey(','+name, 520); } else { renderAll(); setMsg('rename cancelled'); }
+    } else if(e.key==='Escape'){
+      renaming=null; renderAll(); setMsg('rename cancelled');
+    } else if(e.key==='Backspace'){
+      renaming.buf=renaming.buf.slice(0,-1); refreshPrompt();
+    } else if(e.key.length===1 && !e.ctrlKey && !e.metaKey){
+      if(renaming.buf.length<16) renaming.buf+=e.key;
+      refreshPrompt();
+    }
+    return;
+  }
+
+  if(choosing){
+    e.preventDefault();
+    if(e.key==='ArrowDown'){ choosing.idx=(choosing.idx+1)%state.sessions.length; renderChooser(); }
+    else if(e.key==='ArrowUp'){ choosing.idx=(choosing.idx-1+state.sessions.length)%state.sessions.length; renderChooser(); }
+    else if(e.key==='Enter'){
+      const name=state.sessions[choosing.idx].name;
+      closeChooser();
+      execKey('s:'+name, 520);
+    }
+    else if(e.key==='Escape'||e.key==='q'){ closeChooser(); renderAll(); setMsg('cancelled'); }
+    return;
+  }
+
+  if(confirming){
+    if(e.key==='Control'||e.key==='Shift'||e.key==='Alt'||e.key==='Meta') return;
+    if(e.key==='y'||e.key==='Y'){
+      const cmd=confirming.cmd;
+      confirming=null;
+      execKey(cmd, 440);
+      e.preventDefault();
+      return;
+    }
+    // like tmux confirm-before: any other key cancels the prompt
+    confirming=null; renderAll(); setMsg('kill cancelled');
+    if(e.key==='n'||e.key==='N'||e.key==='Escape'){ e.preventDefault(); return; }
+    // fall through so the key still does its normal job (r restarts, ctrl+b arms, etc.)
+  }
+
+  if(state.detached){
+    if(e.key==='Enter'){ execKey('ATTACH'); moves--; renderSide(); e.preventDefault(); return; }
+    if(e.key==='r'||e.key==='R'){ restart(); return; }
+    if(e.key==='?'){ $('#ov-help').classList.remove('hidden'); return; }
+    return;
+  }
+
+  if(e.ctrlKey && (e.key==='b'||e.key==='B')){
+    armed=true;
+    $('#prefixled').classList.add('armed');
+    $('#prefixled').textContent='PREFIX ^B';
+    beep(880,.04,'sine',.02);
+    renderAll();
+    e.preventDefault();
+    return;
+  }
+
+  if(armed){
+    if(e.key==='Control'||e.key==='Shift'||e.key==='Alt'||e.key==='Meta') return;
+    armed=false;
+    $('#prefixled').classList.remove('armed');
+    $('#prefixled').textContent='prefix: ctrl+b';
+    if(e.key==='Escape'){ renderAll(); setMsg('prefix cancelled'); e.preventDefault(); return; }
+    e.preventDefault();
+    runCommand(e.key);
+    return;
+  }
+
+  // unprefixed keys
+  if(e.key==='r'||e.key==='R'){ restart(); }
+  else if(e.key==='?'){ $('#ov-help').classList.remove('hidden'); }
+  else if('%"oxz{}cnpds&,'.indexOf(e.key)>=0 || e.key===' ' || e.key.slice(0,5)==='Arrow'){
+    setMsg('prefix first: ctrl+b, then '+(e.key===' '?'space':e.key), true);
+    beep(150,.1);
+    e.preventDefault();
+  }
+});
+$('#btn-start').onclick=function(){ $('#ov-intro').classList.add('hidden'); };
+$('#btn-next').onclick=function(){ loadLevel(lvlIdx+1); };
+$('#btn-again').onclick=function(){ pile.length=0; $('#ov-done').classList.add('hidden'); loadLevel(0); };
+$('#btn-restart').onclick=restart;
+$('#btn-help').onclick=function(){ $('#ov-help').classList.remove('hidden'); };
+$('#btn-closehelp').onclick=function(){ $('#ov-help').classList.add('hidden'); };
+$('#btn-hint').onclick=function(){
+  setMsg('try: '+level.def.solution.map(function(k){
+    if(k===' ') return 'space';
+    if(k.charAt(0)===',') return ', then type '+k.slice(1);
+    if(k.slice(0,2)==='s:') return 's then pick '+k.slice(2);
+    return k.replace('Arrow','').toLowerCase();
+  }).join(' → '));
+};
+loadLevel(Math.min(unlocked-1, LEVELS.length-1));
+</script>
+</body>
+</html>
