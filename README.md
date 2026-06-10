@@ -46,6 +46,10 @@ To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use th
 ng test
 ```
 
+## Deployment
+
+Pushes to `main` are built and published to GitHub Pages by `.github/workflows/deploy.yml` (requires the repository's Pages source to be set to "GitHub Actions"). The build uses `--base-href /tmux-trainer/` to match the project-page URL.
+
 ## Running end-to-end tests
 
 For end-to-end (e2e) testing, run:
