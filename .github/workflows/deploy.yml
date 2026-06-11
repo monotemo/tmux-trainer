@@ -25,7 +25,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx ng test
-      - run: npx ng build --base-href /tmux-trainer/
+      - run: npm run build -- --base-href /tmux-trainer/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist/pane-wrangler/browser

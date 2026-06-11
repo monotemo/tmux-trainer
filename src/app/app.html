@@ -3,7 +3,9 @@
     <h1>PANE WRANGLER</h1>
     <span class="sub">stack windows · learn tmux</span>
     <span class="spacer"></span>
-    <span id="prefixled" [class.armed]="store.armed()">{{ store.armed() ? 'PREFIX ^B' : 'prefix: ctrl+b' }}</span>
+    <span id="prefixled" [class.armed]="store.armed()">{{
+      store.armed() ? 'PREFIX ^B' : 'prefix: ctrl+b'
+    }}</span>
   </div>
   <div id="main">
     <app-scene />
@@ -18,7 +20,8 @@
       <div id="crows">
         @for (s of store.state().sessions; track s.name; let i = $index) {
           <div class="crow" [class.sel]="i === ch.idx">
-            ({{ i }}) {{ s.name }}: {{ s.windows.length }} window{{ s.windows.length > 1 ? 's' : '' }}{{ i === store.state().activeSes ? ' (attached)' : '' }}
+            ({{ i }}) {{ s.name }}: {{ s.windows.length }} window{{ s.windows.length > 1 ? 's' : ''
+            }}{{ i === store.state().activeSes ? ' (attached)' : '' }}
           </div>
         }
       </div>
@@ -30,8 +33,16 @@
   <div class="overlay">
     <div class="card">
       <h2>PANE WRANGLER</h2>
-      <p>tmux commands all start the same way: press <kbd>ctrl</kbd>+<kbd>b</kbd>, release, then press a command key. That two-step is the whole trick, and this game drills it into your hands.</p>
-      <p>Each level shows a target. Recreate it in the live terminal using real tmux bindings. 18 levels in three acts: panes, then windows, then whole sessions. The windows stacked behind the live one are part of your session — you will learn to move through them.</p>
+      <p>
+        tmux commands all start the same way: press <kbd>ctrl</kbd>+<kbd>b</kbd>, release, then
+        press a command key. That two-step is the whole trick, and this game drills it into your
+        hands.
+      </p>
+      <p>
+        Each level shows a target. Recreate it in the live terminal using real tmux bindings. 18
+        levels in three acts: panes, then windows, then whole sessions. The windows stacked behind
+        the live one are part of your session — you will learn to move through them.
+      </p>
       <p>Beat par for three stars.</p>
       <button (click)="store.overlay.set(null)">start — or press enter</button>
     </div>
@@ -54,7 +65,13 @@
     <div class="card">
       <h2>stack complete</h2>
       <div class="stars">{{ store.totalStars() }} / {{ maxStars }} ★</div>
-      <p>Eighteen levels, all wrangled. Panes: <kbd>%</kbd> <kbd>"</kbd> <kbd>x</kbd> <kbd>z</kbd> <kbd>&#123;</kbd> <kbd>&#125;</kbd> <kbd>o</kbd> <kbd>space</kbd> and arrows. Windows: <kbd>c</kbd> <kbd>n</kbd> <kbd>p</kbd> <kbd>0-9</kbd> <kbd>,</kbd> <kbd>&amp;</kbd>. Sessions: <kbd>d</kbd> <kbd>s</kbd>. Open a real terminal and type <kbd>tmux</kbd> — it will feel like home.</p>
+      <p>
+        Eighteen levels, all wrangled. Panes: <kbd>%</kbd> <kbd>"</kbd> <kbd>x</kbd> <kbd>z</kbd>
+        <kbd>&#123;</kbd> <kbd>&#125;</kbd> <kbd>o</kbd> <kbd>space</kbd> and arrows. Windows:
+        <kbd>c</kbd> <kbd>n</kbd> <kbd>p</kbd> <kbd>0-9</kbd> <kbd>,</kbd> <kbd>&amp;</kbd>.
+        Sessions: <kbd>d</kbd> <kbd>s</kbd>. Open a real terminal and type <kbd>tmux</kbd> — it will
+        feel like home.
+      </p>
       <button (click)="store.playAgain()">play again</button>
     </div>
   </div>
@@ -62,21 +79,22 @@
 
 @if (store.overlay() === 'help') {
   <div class="overlay">
-    <div class="card" style="text-align:left">
-      <h2 style="text-align:center">cheat sheet</h2>
+    <div class="card" style="text-align: left">
+      <h2 style="text-align: center">cheat sheet</h2>
       <p>
-        <b style="color:var(--dim)">panes</b><br>
-        <kbd>ctrl+b %</kbd> split left/right · <kbd>ctrl+b "</kbd> split top/bottom<br>
-        <kbd>ctrl+b ←↑↓→</kbd> move between panes · <kbd>ctrl+b o</kbd> next pane<br>
-        <kbd>ctrl+b x</kbd> kill pane · <kbd>ctrl+b z</kbd> zoom<br>
-        <kbd>ctrl+b &#123;</kbd> / <kbd>&#125;</kbd> swap pane · <kbd>ctrl+b space</kbd> cycle layouts<br>
-        <b style="color:var(--dim)">windows</b><br>
-        <kbd>ctrl+b c</kbd> new window · <kbd>ctrl+b n</kbd> / <kbd>p</kbd> next / previous<br>
-        <kbd>ctrl+b 0-9</kbd> select by number · <kbd>ctrl+b ,</kbd> rename<br>
-        <kbd>ctrl+b &amp;</kbd> kill window<br>
-        <b style="color:var(--dim)">sessions</b><br>
-        <kbd>ctrl+b d</kbd> detach · <kbd>ctrl+b s</kbd> choose session<br>
-        <b style="color:var(--dim)">game</b><br>
+        <b style="color: var(--dim)">panes</b><br />
+        <kbd>ctrl+b %</kbd> split left/right · <kbd>ctrl+b "</kbd> split top/bottom<br />
+        <kbd>ctrl+b ←↑↓→</kbd> move between panes · <kbd>ctrl+b o</kbd> next pane<br />
+        <kbd>ctrl+b x</kbd> kill pane · <kbd>ctrl+b z</kbd> zoom<br />
+        <kbd>ctrl+b &#123;</kbd> / <kbd>&#125;</kbd> swap pane · <kbd>ctrl+b space</kbd> cycle
+        layouts<br />
+        <b style="color: var(--dim)">windows</b><br />
+        <kbd>ctrl+b c</kbd> new window · <kbd>ctrl+b n</kbd> / <kbd>p</kbd> next / previous<br />
+        <kbd>ctrl+b 0-9</kbd> select by number · <kbd>ctrl+b ,</kbd> rename<br />
+        <kbd>ctrl+b &amp;</kbd> kill window<br />
+        <b style="color: var(--dim)">sessions</b><br />
+        <kbd>ctrl+b d</kbd> detach · <kbd>ctrl+b s</kbd> choose session<br />
+        <b style="color: var(--dim)">game</b><br />
         <kbd>esc</kbd> cancel prefix · <kbd>r</kbd> restart level
       </p>
       <button (click)="store.overlay.set(null)">close</button>

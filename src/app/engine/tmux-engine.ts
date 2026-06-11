@@ -89,7 +89,18 @@ export function winSig(w: TmuxWindow): string {
   const r = rectsOf(w)
     .slice()
     .sort((a, b) => a.y - b.y || a.x - b.x)
-    .map((p) => p.app + '@' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ',' + p.w.toFixed(1) + ',' + p.h.toFixed(1))
+    .map(
+      (p) =>
+        p.app +
+        '@' +
+        p.x.toFixed(1) +
+        ',' +
+        p.y.toFixed(1) +
+        ',' +
+        p.w.toFixed(1) +
+        ',' +
+        p.h.toFixed(1),
+    )
     .join(';');
   let z = '';
   if (w.zoomed) {
@@ -212,7 +223,13 @@ export function doZoom(s: TmuxState): OpResult {
   return { ok: true };
 }
 
-export const LAYOUTS = ['even-horizontal', 'even-vertical', 'main-horizontal', 'main-vertical', 'tiled'];
+export const LAYOUTS = [
+  'even-horizontal',
+  'even-vertical',
+  'main-horizontal',
+  'main-vertical',
+  'tiled',
+];
 
 export function buildLayout(name: string, ls: PaneNode[]): PaneNode {
   const n = ls.length;

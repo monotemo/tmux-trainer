@@ -14,16 +14,23 @@
   </div>
 </div>
 <div id="stats">
-  <span>moves <b>{{ store.moves() }}</b></span>
-  <span>par <b>{{ store.level().par }}</b></span>
-  <span>stars <b>{{ store.totalStars() }}</b></span>
+  <span
+    >moves <b>{{ store.moves() }}</b></span
+  >
+  <span
+    >par <b>{{ store.level().par }}</b></span
+  >
+  <span
+    >stars <b>{{ store.totalStars() }}</b></span
+  >
 </div>
 <div>
   <h2>Keys learned</h2>
   <div id="cheat">
     @for (k of allKeys; track k[0]) {
       <div class="ck" [class.locked]="!store.learnedKeys()[k[0]]">
-        <kbd>{{ k[0] }}</kbd><span class="d">{{ store.learnedKeys()[k[0]] ? k[1] : '???' }}</span>
+        <kbd>{{ k[0] }}</kbd
+        ><span class="d">{{ store.learnedKeys()[k[0]] ? k[1] : '???' }}</span>
       </div>
     }
   </div>
@@ -32,13 +39,16 @@
   <h2>Levels</h2>
   <div id="lvldots">
     @for (d of store.levelDots(); track d.i) {
-      <div
+      <button
         class="ldot"
         [class.cur]="d.cur"
         [class.done]="d.done"
         [class.lockd]="d.locked"
+        [disabled]="d.locked"
         (click)="clickDot(d.i)"
-      >{{ d.label }}</div>
+      >
+        {{ d.label }}
+      </button>
     }
   </div>
 </div>
