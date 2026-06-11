@@ -2,7 +2,9 @@
   <div id="ghosts">
     @for (g of store.ghostItems(); track $index) {
       <div class="win ghost" [style.transform]="g.transform" [style.opacity]="g.opacity">
-        <div class="winbar"><span>{{ g.label }}</span></div>
+        <div class="winbar">
+          <span>{{ g.label }}</span>
+        </div>
         <div class="panes">
           @for (r of g.rects; track r.id) {
             <div

@@ -203,7 +203,10 @@ export class GameStore {
         this.sound.beep(150, 0.12);
         return;
       }
-      this.confirming.set({ cmd: '&', label: 'kill-window ' + dispName(win(this.state())) + '? (y/n)' });
+      this.confirming.set({
+        cmd: '&',
+        label: 'kill-window ' + dispName(win(this.state())) + '? (y/n)',
+      });
       return;
     }
     if (key === ',') {
@@ -363,7 +366,11 @@ export class GameStore {
       this.restart();
     } else if (e.key === '?') {
       this.overlay.set('help');
-    } else if ('%"oxz{}cnpds&,'.indexOf(e.key) >= 0 || e.key === ' ' || e.key.slice(0, 5) === 'Arrow') {
+    } else if (
+      '%"oxz{}cnpds&,'.indexOf(e.key) >= 0 ||
+      e.key === ' ' ||
+      e.key.slice(0, 5) === 'Arrow'
+    ) {
       this.setMsg('prefix first: ctrl+b, then ' + (e.key === ' ' ? 'space' : e.key), true);
       this.sound.beep(150, 0.1);
       e.preventDefault();

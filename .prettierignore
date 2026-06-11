@@ -1,0 +1,7 @@
+# Build output and caches
+/dist
+/coverage
+/.angular
+
+# Lockfile
+package-lock.json
